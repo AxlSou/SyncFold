@@ -7,6 +7,7 @@ import argparse
 # = Color logs    =
 # =================
 
+# Define ANSI escape codes for color logs
 class bcolors:
     HEADER = '\033[95m'
     OKCYAN = '\033[96m'
@@ -14,6 +15,7 @@ class bcolors:
     WARNING = '\033[93m'
     ERROR = '\033[91m'
 
+# Define class to hold counters for various actions
 class counters:
     files_created = 0
     folders_created = 0
@@ -26,6 +28,7 @@ class counters:
 # = Define functions =
 # ====================
 
+# Function to create argument parser
 def create_parser():
     parser = argparse.ArgumentParser(description='Synconize files between two directories.')
     parser.add_argument('src', metavar='src', type=str, help='source directory')
@@ -34,22 +37,26 @@ def create_parser():
     parser.add_argument('log', metavar='log', type=str, help='log file')
     return parser
 
+# Function to log messages to a file and console with timestamp
 def log(log_file, message, color=bcolors.OKGREEN):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     with open(log_file, 'a') as f:
         f.write('[' + timestamp + ']' + message + '\n')
     print(color + '[' + timestamp + ']' + message)
 
+# Function to compute MD5 hash of a file
 def get_file_md5(file_path):
     with open(file_path, 'rb') as f:
         md5 = hashlib.md5(f.read()).hexdigest()
     return md5
 
+# Function to compare MD5 hashes of two files
 def compare_files(src_file, dst_file):
     src_md5 = get_file_md5(src_file)
     dst_md5 = get_file_md5(dst_file)
     return src_md5 == dst_md5
 
+# Function to compare contents of two folders
 def compare_folders(src_folder, dst_folder):
     src_list = os.listdir(src_folder)
     dst_list = os.listdir(dst_folder)
@@ -67,6 +74,7 @@ def compare_folders(src_folder, dst_folder):
             return False
     return True
 
+# Function to synchronize files between two directories
 def sync_files(src_file, dst_file):
     src_content = os.listdir(src_file)
     dst_content = os.listdir(dst_file)
@@ -104,6 +112,8 @@ def sync_files(src_file, dst_file):
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
+    
+    # Check if source, destination, and log files exist
     if not os.path.isdir(args.src):
         log(args.log, '[ERROR] - Source directory does not exist.', bcolors.ERROR)
         exit(-1)
@@ -115,13 +125,17 @@ if __name__ == '__main__':
         exit(-1)
 
     log(args.log, 'Starting synchronization.', bcolors.HEADER)
+    
+    # Main loop for continuous synchronization
     while True:
-            
+        
+        # Check if folders are up to date
         if compare_folders(args.src, args.dst):
             log(args.log, 'Folders are up to date.')
             time.sleep(args.sync_interval)
             continue
         
+        # Synchronize files
         sync_files(args.src, args.dst)
         
         src_content = os.listdir(args.src)
@@ -139,9 +153,12 @@ if __name__ == '__main__':
                     os.system('rm -r ' + args.dst + '/' + dst_item)
                     log(args.log, 'Folder ' + dst_item + ' has been deleted.')
                     counters.folders_deleted += 1
-                
+            
+        # Log summary of synchronization    
         log(args.log, 'Folders are up to date.')
         log(args.log, 'Files created: ' + str(counters.files_created) + ', folders created: ' + str(counters.folders_created) + ',', bcolors.OKCYAN)
         log(args.log, 'files updated: ' + str(counters.files_updated) + ', folders updated: ' + str(counters.folders_updated) + '.', bcolors.OKCYAN)
         log(args.log, 'files deleted: ' + str(counters.files_deleted) + ', folders deleted: ' + str(counters.folders_deleted) + '.', bcolors.OKCYAN)
+        
+        # Wait for the specified sync interval
         time.sleep(args.sync_interval)
