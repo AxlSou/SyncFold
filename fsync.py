@@ -13,6 +13,14 @@ class bcolors:
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
     ERROR = '\033[91m'
+
+class counters:
+    files_created = 0
+    folders_created = 0
+    files_updated = 0
+    folders_updated = 0
+    files_deleted = 0
+    folders_deleted = 0
     
 # ====================
 # = Define functions =
@@ -59,6 +67,36 @@ def compare_folders(src_folder, dst_folder):
             return False
     return True
 
+def sync_files(src_file, dst_file):
+    src_content = os.listdir(src_file)
+    dst_content = os.listdir(dst_file)
+    for src_item in src_content:
+        full_src_path = os.path.join(src_file, src_item)
+        full_dst_path = os.path.join(dst_file, src_item)
+        if os.path.isfile(full_src_path):
+            if src_item in dst_content:
+                if not compare_files(full_src_path, full_dst_path):
+                    log(args.log, 'Updating ' + full_dst_path)
+                    os.system('cp ' + full_src_path + ' ' + full_dst_path)
+                    log(args.log, 'File ' + full_src_path + ' is updated.')
+                    counters.files_updated += 1
+            else:
+                log(args.log, 'File ' + full_src_path + ' has not been found in destination directory.', bcolors.WARNING)
+                os.system('cp ' + full_src_path + ' ' + full_dst_path)
+                log(args.log, 'File ' + full_src_path + ' has been copied.')
+                counters.files_created += 1
+        else:
+            if src_item in dst_content:
+                if not compare_folders(full_src_path, full_dst_path):
+                    sync_files(full_src_path, full_dst_path)
+                    counters.folders_updated += 1
+            else:
+                log(args.log, 'Folder ' + full_src_path + ' has not been found in destination directory.', bcolors.WARNING)
+                os.system('mkdir ' + full_dst_path)
+                log(args.log, 'Folder ' + full_src_path + ' created in destination directory.')
+                sync_files(full_src_path, full_dst_path)
+                counters.folders_created += 1
+                    
 # ================
 # = Main program =
 # ================
@@ -78,62 +116,32 @@ if __name__ == '__main__':
 
     log(args.log, 'Starting synchronization.', bcolors.HEADER)
     while True:
-        filesCreated = 0;
-        foldersCreated = 0;
-        filesUpdated = 0;
-        foldersUpdated = 0;
-        filesDeleted = 0;
-        foldersDeleted = 0;
             
         if compare_folders(args.src, args.dst):
             log(args.log, 'Folders are up to date.')
             time.sleep(args.sync_interval)
             continue
         
+        sync_files(args.src, args.dst)
+        
         src_content = os.listdir(args.src)
         dst_content = os.listdir(args.dst)
-        for src_item in src_content:
-            if os.path.isfile(args.src+'/'+src_item):
-                if src_item in dst_content:
-                    if not compare_files(args.src+'/'+src_item, args.dst+'/'+src_item):
-                        log(args.log, 'Updating ' + src_item)
-                        os.system('cp ' + args.src + '/' + src_item + ' ' + args.dst + '/' + src_item)
-                        log(args.log, 'File ' + src_item + ' is updated.')
-                        filesUpdated += 1
-                else:
-                    log(args.log, 'File ' + src_item + ' has not been found in destination directory.', bcolors.WARNING)
-                    os.system('cp ' + args.src + '/' + src_item + ' ' + args.dst + '/' + src_item)
-                    log(args.log, 'File ' + src_item + ' has been copied.')
-                    filesCreated += 1
-            else:
-                if src_item in dst_content:
-                    if not compare_folders(args.src+'/'+src_item, args.dst+'/'+src_item):
-                        log(args.log, 'Updating ' + src_item)
-                        os.system('cp -r ' + args.src + '/' + src_item + ' ' + args.dst + '/' + src_item)
-                        log(args.log, 'Folder ' + src_item + ' is updated.')
-                        foldersUpdated += 1
-                else:
-                    log(args.log, 'Folder ' + src_item + ' has not been found in destination directory.', bcolors.WARNING)
-                    os.system('cp -r ' + args.src + '/' + src_item + ' ' + args.dst + '/' + src_item)
-                    log(args.log, 'Folder ' + src_item + ' has been copied.')
-                    foldersCreated += 1
-        
         for dst_item in dst_content:
             if os.path.isfile(dst_item):
                 if dst_item not in src_content:
                     log(args.log, 'File ' + dst_item + ' has not been found in source directory.', bcolors.WARNING)
                     os.system('rm ' + args.dst + '/' + dst_item)
                     log(args.log, 'File ' + dst_item + ' has been deleted.')
-                    filesDeleted += 1
+                    counters.files_deleted += 1
             else:
                 if dst_item not in src_content:
                     log(args.log, 'Folder ' + dst_item + ' has not been found in source directory.', bcolors.WARNING)
                     os.system('rm -r ' + args.dst + '/' + dst_item)
                     log(args.log, 'Folder ' + dst_item + ' has been deleted.')
-                    filesDeleted += 1
+                    counters.folders_deleted += 1
                 
         log(args.log, 'Folders are up to date.')
-        log(args.log, 'Files created: ' + str(filesCreated) + ', folders created: ' + str(foldersCreated) + ',', bcolors.OKCYAN)
-        log(args.log, 'files updated: ' + str(filesUpdated) + ', folders updated: ' + str(foldersUpdated) + ',', bcolors.OKCYAN)
-        log(args.log, 'files deleted: ' + str(filesDeleted) + ', folders deleted: ' + str(foldersDeleted) + '.', bcolors.OKCYAN)
+        log(args.log, 'Files created: ' + str(counters.files_created) + ', folders created: ' + str(counters.folders_created) + ',', bcolors.OKCYAN)
+        log(args.log, 'files updated: ' + str(counters.files_updated) + ', folders updated: ' + str(counters.folders_updated) + '.', bcolors.OKCYAN)
+        log(args.log, 'files deleted: ' + str(counters.files_deleted) + ', folders deleted: ' + str(counters.folders_deleted) + '.', bcolors.OKCYAN)
         time.sleep(args.sync_interval)
